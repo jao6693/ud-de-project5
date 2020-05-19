@@ -14,6 +14,8 @@ class StageToRedshiftOperator(BaseOperator):
                  bucket,
                  table,
                  queries,
+                 json_format,
+                 timestamped,
                  *args, **kwargs):
 
         super(StageToRedshiftOperator, self).__init__(*args, **kwargs)
@@ -22,6 +24,8 @@ class StageToRedshiftOperator(BaseOperator):
         self.bucket = bucket
         self.table = table
         self.queries = queries
+        self.json_format = json_format
+        self.timestamped = timestamped
 
     def execute(self, context):
         """
@@ -46,19 +50,30 @@ class StageToRedshiftOperator(BaseOperator):
         query = f'{self.table}_table_create'
         sql_statement = getattr(self.queries, query)
         self.log.info(sql_statement)
-        #redshift_hook.run(sql_statement)
+        redshift_hook.run(sql_statement)
 
-        #  load timestamped files from S3 based on the execution time and run backfills
-        s3_bucket = self.bucket.format(execution_date.year,
-                                       execution_date.month,
-                                       execution_date.year,
-                                       execution_date.month,
-                                       execution_date.day)
+        s3_bucket = self.bucket
+        if self.timestamped == True:
+            # load timestamped files from S3 based on the execution time and run backfills
+            s3_bucket = s3_bucket.format(execution_date.year,
+                                         execution_date.month,
+                                         execution_date.year,
+                                         execution_date.month,
+                                         f'{execution_date.day:02d}')
+
         self.log.info(s3_bucket)
 
         # copy S3 files into Redshift
-        self.log.info(f'Run COPY statement for {self.table} from helper class')
-        sql_statement = getattr(self.queries, 'COPY_SQL') \
-            .format(self.table, s3_bucket, credentials.access_key, credentials.secret_key)
+        if self.json_format == 'auto':
+            self.log.info(
+                f'Run COPY statement for {self.table} from helper class')
+            sql_statement = getattr(self.queries, 'COPY_SQL_AUTO') \
+                .format(self.table, s3_bucket, credentials.access_key, credentials.secret_key)
+        else:
+            self.log.info(
+                f'Run COPY statement for {self.table} from helper class')
+            sql_statement = getattr(self.queries, 'COPY_SQL_FORMAT') \
+                .format(self.table, s3_bucket, credentials.access_key, credentials.secret_key, self.json_format)
+
         self.log.info(sql_statement)
-        #redshift_hook.run(sql_statement)
+        redshift_hook.run(sql_statement)
