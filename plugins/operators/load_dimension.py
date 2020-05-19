@@ -12,12 +12,14 @@ class LoadDimensionOperator(BaseOperator):
                  redshift_conn_id,
                  table,
                  queries,
+                 truncate,
                  *args, **kwargs):
 
         super(LoadDimensionOperator, self).__init__(*args, **kwargs)
         self.conn_id = redshift_conn_id
         self.table = table
         self.queries = queries
+        self.truncate = truncate
 
     def execute(self, context):
         """
@@ -34,7 +36,16 @@ class LoadDimensionOperator(BaseOperator):
         query = f'{self.table}_table_create'
         sql_statement = getattr(self.queries, query)
         self.log.info(sql_statement)
-        #redshift_hook.run(sql_statement)
+        redshift_hook.run(sql_statement)
+
+        # truncate table if required
+        if self.truncate == True:
+            self.log.warning(
+                f'Run TRUNCATE statement for {self.table} from helper class')
+            sql_statement = getattr(self.queries, 'TRUNCATE_SQL') \
+                .format(self.table)
+            self.log.info(sql_statement)
+            redshift_hook.run(sql_statement)
 
         # load dimension table from staging
         self.log.info(
@@ -43,4 +54,4 @@ class LoadDimensionOperator(BaseOperator):
         query = f'{self.table}_table_insert'
         sql_statement = getattr(self.queries, query)
         self.log.info(sql_statement)
-        #redshift_hook.run(sql_statement)
+        redshift_hook.run(sql_statement)
