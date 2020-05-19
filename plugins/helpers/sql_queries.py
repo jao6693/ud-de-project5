@@ -35,8 +35,8 @@ class SqlQueries:
             userid int4 );
     """)
 
-    user_table_create = ("""
-        CREATE TABLE public.users (
+    users_table_create = ("""
+        CREATE TABLE IF NOT EXISTS public.users (
             userid int4 NOT NULL,
             first_name varchar(256),
             last_name varchar(256),
@@ -45,8 +45,8 @@ class SqlQueries:
             CONSTRAINT users_pkey PRIMARY KEY (userid) );
     """)
 
-    artist_table_create = ("""
-        CREATE TABLE public.artists (
+    artists_table_create = ("""
+        CREATE TABLE IF NOT EXISTS public.artists (
             artistid varchar(256) NOT NULL,
             name varchar(256),
             location varchar(256),
@@ -54,8 +54,8 @@ class SqlQueries:
             longitude numeric(18,0) );
     """)
 
-    song_table_create = ("""
-        CREATE TABLE public.songs (
+    songs_table_create = ("""
+        CREATE TABLE IF NOT EXISTS public.songs (
             songid varchar(256) NOT NULL,
             title varchar(256),
             artistid varchar(256),
@@ -65,7 +65,7 @@ class SqlQueries:
     """)
 
     time_table_create = ("""
-        CREATE TABLE public.time (
+        CREATE TABLE IF NOT EXISTS public.time (
             start_time timestamp NOT NULL,
             "hour" int2,
             "day" int2,
@@ -76,7 +76,7 @@ class SqlQueries:
     """)
 
     songplay_table_create = ("""
-        CREATE TABLE public.songplays (
+        CREATE TABLE IF NOT EXISTS public.songplays (
             playid varchar(32) NOT NULL,
             start_time timestamp NOT NULL,
             userid int4 NOT NULL,
@@ -89,17 +89,31 @@ class SqlQueries:
             CONSTRAINT songplays_pkey PRIMARY KEY (playid) );
     """)
 
-    COPY_SQL = """
+    COPY_SQL_AUTO = """
         COPY {}
         FROM '{}'
         ACCESS_KEY_ID '{}'
         SECRET_ACCESS_KEY '{}'
         JSON 'auto';
-        """
+    """
+
+    COPY_SQL_FORMAT = """
+        COPY {}
+        FROM '{}'
+        ACCESS_KEY_ID '{}'
+        SECRET_ACCESS_KEY '{}'
+        FORMAT AS JSON '{}';
+    """
+
+    TRUNCATE_SQL = """
+        TRUNCATE TABLE {};
+    """
 
     songplay_table_insert = ("""
-        SELECT
-                md5(events.sessionid || events.start_time) songplay_id,
+        INSERT INTO public.songplays
+            (playid, start_time, userid, level, songid, artistid, sessionid, location, user_agent)
+            SELECT
+                md5(events.sessionid || events.start_time) AS playid,
                 events.start_time, 
                 events.userid, 
                 events.level, 
@@ -114,27 +128,35 @@ class SqlQueries:
             LEFT JOIN staging_songs songs
             ON events.song = songs.title
                 AND events.artist = songs.artist_name
-                AND events.length = songs.duration
+                AND events.length = songs.duration;
     """)
 
-    user_table_insert = ("""
-        SELECT distinct userid, firstname, lastname, gender, level
-        FROM staging_events
-        WHERE page='NextSong'
+    users_table_insert = ("""
+        INSERT INTO public.users
+            (userid, first_name, last_name, gender, level)
+            SELECT distinct userid, firstname, lastname, gender, level
+            FROM staging_events
+            WHERE page='NextSong';
     """)
 
-    song_table_insert = ("""
-        SELECT distinct song_id, title, artist_id, year, duration
-        FROM staging_songs
+    songs_table_insert = ("""
+        INSERT INTO public.songs
+            (songid, title, artistid, year, duration)
+            SELECT distinct song_id, title, artist_id, year, duration
+            FROM staging_songs;
     """)
 
-    artist_table_insert = ("""
-        SELECT distinct artist_id, artist_name, artist_location, artist_latitude, artist_longitude
-        FROM staging_songs
+    artists_table_insert = ("""
+        INSERT INTO public.artists
+            (artistid, name, location, latitude, longitude)
+            SELECT distinct artist_id, artist_name, artist_location, artist_latitude, artist_longitude
+            FROM staging_songs;
     """)
 
     time_table_insert = ("""
-        SELECT start_time, extract(hour from start_time), extract(day from start_time), extract(week from start_time), 
-               extract(month from start_time), extract(year from start_time), extract(dayofweek from start_time)
-        FROM songplays
+        INSERT INTO public.time
+            (start_time, hour, day, week, month, year, dayofweek)
+            SELECT start_time, extract(hour from start_time), extract(day from start_time), extract(week from start_time), 
+                   extract(month from start_time), extract(year from start_time), extract(dayofweek from start_time)
+            FROM songplays;
     """)
