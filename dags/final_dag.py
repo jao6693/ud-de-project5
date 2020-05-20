@@ -52,19 +52,23 @@ def load_dimension_table_subdag(parent_dag_name, child_dag_name, args, tables):
     return dag_subdag
 
 
-def load_data_quality_subdag(parent_dag_name, child_dag_name, args, tables):
+def run_data_quality_subdag(parent_dag_name, child_dag_name, args, checks):
     dag_subdag = DAG(
         dag_id=f'{parent_dag_name}.{child_dag_name}',
         default_args=args,
     )
     with dag_subdag:
-        for table in tables:
+        for check in checks:
+            table = check.get('table')
+            tests = check.get('tests')
             task = DataQualityOperator(
                 task_id=f'Run_{table}_data_quality_check',
                 default_args=args,
                 dag=dag_subdag,
                 redshift_conn_id='redshift',
-                table=table
+                table=table,
+                queries=SqlQueries,
+                tests=tests
             )
 
     return dag_subdag
@@ -114,8 +118,19 @@ load_dimension_tables = SubDagOperator(
 
 run_quality_checks = SubDagOperator(
     task_id='Run_data_quality_checks',
-    subdag=load_data_quality_subdag('final_dag', 'Run_data_quality_checks',
-                                    default_args, ['songplays', 'users', 'songs', 'artists', 'time']),
+    subdag=run_data_quality_subdag('final_dag',
+                                   'Run_data_quality_checks',
+                                   default_args,
+                                   [{'table': 'songplays',
+                                     'tests': [{'check': 'SQL_COUNT', 'operator': '>', 'result': 0}]},
+                                    {'table': 'users',
+                                     'tests': [{'check': 'SQL_COUNT', 'operator': '>', 'result': 0}]},
+                                    {'table': 'songs',
+                                     'tests': [{'check': 'SQL_COUNT', 'operator': '>', 'result': 0}]},
+                                    {'table': 'artists',
+                                     'tests': [{'check': 'SQL_COUNT', 'operator': '>', 'result': 0}]},
+                                    {'table': 'time',
+                                     'tests': [{'check': 'SQL_COUNT', 'operator': '>', 'result': 0}]}]),
     default_args=default_args,
     dag=dag,
 )
