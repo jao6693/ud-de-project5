@@ -89,25 +89,29 @@ class SqlQueries:
             CONSTRAINT songplays_pkey PRIMARY KEY (playid) );
     """)
 
-    COPY_SQL_AUTO = """
+    COPY_SQL_AUTO = ("""
         COPY {}
         FROM '{}'
         ACCESS_KEY_ID '{}'
         SECRET_ACCESS_KEY '{}'
         JSON 'auto';
-    """
+    """)
 
-    COPY_SQL_FORMAT = """
+    COPY_SQL_FORMAT = ("""
         COPY {}
         FROM '{}'
         ACCESS_KEY_ID '{}'
         SECRET_ACCESS_KEY '{}'
         FORMAT AS JSON '{}';
-    """
+    """)
 
-    TRUNCATE_SQL = """
+    TRUNCATE_SQL = ("""
         TRUNCATE TABLE {};
-    """
+    """)
+
+    SQL_COUNT = ("""
+        SELECT COUNT( * ) FROM {};
+    """)
 
     songplay_table_insert = ("""
         INSERT INTO public.songplays
